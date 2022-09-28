@@ -19,11 +19,11 @@ library(tidyr)
   
 # DOWNLOAD DO DOCUMENTO PDF ---------------------------------------------------
 
-  ## arquivo temporário
-temp <- tempfile(pattern = 'tese_', fileext = '.pdf')
 
-  ## download do pdf
-download.file(
+temp <- tempfile(pattern = 'tese_', fileext = '.pdf')      # arquivo temporário
+
+
+download.file(                                                # download do pdf
   url = paste0('https://repositorio.ufsc.br/xmlui/bitstream/handle/123456789/',
                '92531/268885.pdf?sequence=1&isAllowed=y'),
   destfile = temp,
@@ -31,26 +31,34 @@ download.file(
   mode = 'wb'
   )
 
-  ## abrir o documento para eventuais consultas
-temp |> shell.exec()
+
+temp |> shell.exec()               # abrir o documento para eventuais consultas
+
 
 # OBTENCAO DAS TABELAS --------------------------------------------------------
 
-    # Páginas onde se encontram as tabelas
-    # tabelas 5 a 9.
-paginas <- c(122, 149, 158, 164, 172, 181)
+  # Esta secao extrai e trata peculiaridades das tabelas, como celulas mescla-
+  # das, valores aglutinados e colunas faltantes.
 
-tb <- extract_tables(
+    
+paginas <- c(122, 149, 158, 164, 172, 181)    # Páginas com as tabelas (5 a 10)
+
+
+tb <- extract_tables(                                    # Extração das tabelas
   file = temp,
   pages = paginas, 
   encoding = 'UTF-8',
   output = 'data.frame',
   method = 'stream')
-  ## Abrir o arquivo list das tabelas
-View(tb)
+
+  
+View(tb)                                     # Abrir o arquivo list das tabelas
+
+
 rm(paginas)
 
-  # tratamento da 1ª e 3ª tabela: celulas aglutinadas
+
+  # tratamento da 1ª e 3ª tabela: celulas mescladas
     # inclusao das colunas que faltam:
 tb[[1]] <- cbind(tb[[1]][,1], 'x2' = NA, 'x3' = NA, tb[[1]][,2:3])
 tb[[3]] <- cbind(tb[[3]][,1], 'x2' = NA, 'x3' = NA, tb[[3]][,2:3])
@@ -70,6 +78,7 @@ tb[[3]][,1] <- gsub('\\s\\d.*', '', tb[[3]][, 1])
 tb[[3]][19, ] <- c('Rio Grande do Norte', t(tb[[3]][20,-1]))
     # exclusao de linhas desnecessarias
 tb[[3]] <- tb[[3]][-c(20:21),]
+
     # retirada de linhas nao lidas como header
 linhas <- c(3,4,3,4,4,4)
 for (i in 1:length(linhas)) {
@@ -77,62 +86,67 @@ for (i in 1:length(linhas)) {
   rm(i)
 }
 rm(linhas)
-    # ordenação da tabela 1.
-tb[[1]] <- cbind(tb[[1]][, 1:3], tb[[1]][, c(5,4)])
+
+    
+tb[[1]] <- cbind(tb[[1]][, 1:3], tb[[1]][, c(5,4)])     # ordenação da tabela 1
 
 
   # ATENÇÃO:
   # obtencao da tabela 4, referente ao periodo colonial.
     # Obs.: o extract_tables nao detecta as informacoes desta pagina, entao fi-
     # zemos uso do extract_areas. Assim que o comando abaixo for rodado, deve
-    # abrir uma pagina no Viwer do seu RStudio. Selecione com o mouse a area
-    # onde se encontra a tabela desejada e em seguida clique em 'Done'.
+    # abrir uma pagina no Viewer do seu RStudio. Selecione com o mouse a area
+    # onde se encontra a tabela desejada e em seguida clique em 'Done'. Não se-
+    # lecione os titulos da tabela. Apenas as informações dos municipios e o
+    # total.
 
-tb4 <- extract_areas(
+tb4 <- extract_areas(                                    # Extração da tabela 4
   file = temp,
   pages = 102
   )
 
-    # transformando em data.frame
-tb4 <- tb4[[1]] |> data.frame()
-    # aglutinando informacoes das colunas 1 e 2.
-tb4$X2[-18] <- tb4$X1[-18]
-    # retirada da coluna 1
-tb4 <- tb4[, -1]
-    # nomeando corretamente as colunas
-names(tb4) <- c('provincia', 'municipios')
-    # transformacao de character em numeric
-tb4$municipios <- tb4$municipios |> as.numeric()
-    # Exibir a tabela
-View(tb4)
+
+tb4 <- tb4[[1]] |> data.frame()                   # transformando em data.frame
+tb4$X2[-18] <- tb4$X1[-18]          # aglutinando informacoes das colunas 1 e 2
+tb4 <- tb4[, -1]                                         # retirada da coluna 1
+names(tb4) <- c('provincia', 'municipios')   # nomeando corretamente as colunas
+tb4$municipios <- tb4$municipios |> as.numeric()       # conversao para numeric
+View(tb4)                                                     # Exibir a tabela
+
 
 # MONTAGEM E TRATAMENTO DA TABELA UNICA ---------------------------------------
-# inclusao de informacoes sobre os periodos de cada tabela
-    # vetor com os períodos
-periodos <- c('1822 - 1889',
+
+
+  # inclusao de informacoes sobre os periodos de cada tabela
+
+
+periodos <- c('1822 - 1889',                            # vetor com os períodos
               '1890 - 1930',
               '1931 - 1945',
               '1946 - 1964',
               '1965 - 1985',
               '1986 - 2008')
-# nomes das colunas
-nomes <- c('periodo',
+
+
+nomes <- c('periodo',                                       # nomes das colunas
            'uf',
            'mun_existentes',
            'mun_criados',
            'total',
            'variacao')
-# objeto que acondiciona a tabela unificada
-d <- NULL
-    # loop de montagem da tabela unificada
-for (i in 1:length(periodos)) {
+
+
+d <- NULL                           # objeto que acondiciona a tabela unificada
+
+
+for (i in 1:length(periodos)) {          # loop de montagem da tabela unificada
   d0 = cbind(periodo = periodos[i],
              tb[[i]])
   names(d0)= nomes
   d = rbind(d, d0)
   rm(i, d0)
-  
-}
+}      # loop de montagem da tabela unificada
+
 
   # transformacao das colunas numericas (character -> numeric)
 d$mun_existentes <- d$mun_existentes |> as.numeric()
@@ -143,18 +157,28 @@ d$variacao <- d$variacao |> as.numeric()
     # obs.: a transformação das colunas mun_existentes e total acusam NA's por
     # conter caracteres que indicam a falta de dados (--).
 
-# padronizacao dos títulos de UF
-    # retirada de acentos
-d$uf <- d$uf |> stringi::stri_trans_general(id = 'Latin - ASCII')
-    # criacao das colunas regiao e sigla_uf
-        # tabela de siglas e regioes
-t1 <- read_html(
+
+  # padronizacao dos títulos de UF
+    
+
+d$uf <- d$uf |>                                           # retirada de acentos
+  stringi::stri_trans_general(id = 'Latin - ASCII') 
+
+
+  # criacao das colunas regiao e sigla_uf
+
+
+t1 <- read_html(                                   # tabela de siglas e regioes
   x = paste0('https://www.significados.com.br/siglas-dos-estados-do-brasil-',
              'e-suas-capitais/'),
   encoding = 'UTF-8') |>
   html_table(header = T) |> as.data.frame()
+
+
 t1$ESTADO <- stringi::stri_trans_general(t1$ESTADO, id = 'Latin - ASCII')
-        # loop de preenchimento das colunas
+
+
+  # loop de preenchimento das colunas
 d$sigla_uf <- NA
 d$regiao <- NA
 for (i in 1:nrow(t1)) {
@@ -168,7 +192,7 @@ for (i in 1:nrow(t1)) {
 }
 
 
-  # Salvar a tabela unica (retire as # para utilizar)
+  # Salvar a tabela unica (retire as '#' para utilizar)
 # saveRDS(object = d, file = 'tb_mun_br.RDS')
   # Salvar o ambiente
 # save.image(
@@ -216,6 +240,15 @@ tb4|> filter(provincia != 'Total') |>
     plot.title.position = 'plot'
   )
 
+ggsave(                                 # Salvar o gráfico em jpeg. Perceba que 
+  filename = 'graficos/grafico_1.jpeg', # não foi criado um objeto para o grá-
+  device = 'jpeg',                      # fico. É porque o ggsave considera o
+  width = unit(6, 'cm'),                # último gráfico gerado.
+  height = unit(4, 'cm'),
+  dpi = 72
+  )
+
+
 ## ├─ grafico 2: total de municipios ------------------------------------------
 
 d |>
@@ -260,6 +293,14 @@ d |>
     plot.caption.position = 'plot'
   )
 
+ggsave(                                 # Salvar o gráfico em jpeg. Perceba que 
+  filename = 'graficos/grafico_2.jpeg', # não foi criado um objeto para o grá-
+  device = 'jpeg',                      # fico. É porque o ggsave considera o
+  width = unit(6, 'cm'),                # último gráfico gerado.
+  height = unit(5, 'cm'),
+  dpi = 72
+)
+
 ## ├─ grafico 3: total de municipios por regiao -------------------------------
 
 d |>
@@ -275,12 +316,20 @@ d |>
   labs(
     x = '',
     y = '',
-    title = 'Quantidade de Municípios por Região Brasileira',
+    title = 'Quantidade de Municípios por Região\nBrasileira',
     subtitle = 'Soma dos então existentes e os criados no período.',
     caption = paste('Elab.: @ahras_econ, fonte: Adilar Antônio Cigoni (2009)',
                     '\nLinguagem R em RStudio IDE. 2022.')
   )+
   theme_fivethirtyeight()
+
+ggsave(                                 # Salvar o gráfico em jpeg. Perceba que 
+  filename = 'graficos/grafico_3.jpeg', # não foi criado um objeto para o grá-
+  device = 'jpeg',                      # fico. É porque o ggsave considera o
+  width = unit(6, 'cm'),                # último gráfico gerado.
+  height = unit(4, 'cm'),
+  dpi = 72
+)
 
 ## ├─ grafico 4: variacao de emancipação por regiao ---------------------------
 
@@ -295,7 +344,7 @@ d |> filter(uf != "Total") |>
   labs(
     x = '',
     y = '',
-    title = 'Composição da Emancipação de Municípios por Região Brasileira',
+    title = 'Composição da Emancipação de Municípios por Região\nBrasileira',
     subtitle = paste0('participação na criação de novos',
                       ' municípios, por região e período.'),
     caption = paste('Elab.: @ahras_econ, fonte: Adilar Antônio Cigoni (2009)',
@@ -309,6 +358,16 @@ d |> filter(uf != "Total") |>
     plot.title.position = 'plot'
   )
 
+
+ggsave(                                 # Salvar o gráfico em jpeg. Perceba que 
+  filename = 'graficos/grafico_4.jpeg', # não foi criado um objeto para o grá-
+  device = 'jpeg',                      # fico. É porque o ggsave considera o
+  width = unit(6, 'cm'),                # último gráfico gerado.
+  height = unit(5, 'cm'),
+  dpi = 72
+)
+
+
 ## ├─ grafico 5: ranking de emancipação por uf --------------------------------
 
 d |>
@@ -321,3 +380,11 @@ d |>
     legend.title = element_blank()
   )+
   coord_flip()
+
+ggsave(                                 # Salvar o gráfico em jpeg. Perceba que 
+  filename = 'graficos/grafico_5.jpeg', # não foi criado um objeto para o grá-
+  device = 'jpeg',                      # fico. É porque o ggsave considera o
+  width = unit(5, 'cm'),                # último gráfico gerado.
+  height = unit(7, 'cm'),
+  dpi = 72
+)
